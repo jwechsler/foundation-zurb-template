@@ -55,7 +55,7 @@ gulp.task('default',
 // Delete the "dist" folder
 // This happens every time a build starts
 async function clean() {
-  await rimraf(PATHS.dist);
+  await rimraf(PATHS.dist + '/*', { glob: true });
 }
 
 // Copy files out of the assets folder
