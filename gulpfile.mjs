@@ -144,7 +144,7 @@ function javascript() {
 // Copy images to the "dist" folder
 // In production, the images are compressed
 function images() {
-  return gulp.src('src/assets/img/**/*', { encoding: false })
+  return gulp.src('src/assets/img/**/*', { encoding: false, nodir: true })
     .pipe(gulpIf(PRODUCTION, imagemin([
       gifsicle({ interlaced: true }),
       mozjpeg({ quality: 85, progressive: true }),
