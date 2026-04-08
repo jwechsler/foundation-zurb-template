@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 import gulp from 'gulp';
@@ -57,7 +57,8 @@ gulp.task('default',
 // Delete the "dist" folder
 // This happens every time a build starts
 async function clean() {
-  await rimraf(PATHS.dist + '/*', { glob: true });
+  const entries = readdirSync(PATHS.dist).map(f => PATHS.dist + '/' + f);
+  await rimraf(entries);
 }
 
 // Copy files out of the assets folder
