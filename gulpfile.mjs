@@ -152,7 +152,7 @@ function images() {
     .pipe(gulpIf(PRODUCTION, cache(imagemin([
       gifsicle({ interlaced: true }),
       mozjpeg({ quality: 85, progressive: true }),
-      optipng({ optimizationLevel: 5 }),
+      optipng({ optimizationLevel: 2 }),
       svgo({
         plugins: [
           { name: 'removeViewBox', active: true },
