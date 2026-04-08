@@ -17,7 +17,7 @@ This is the official ZURB Template for use with [Foundation for Sites](https://g
 
 To use this template, your computer needs:
 
-- [NodeJS](https://nodejs.org/en/) (Version 12 or greater recommended)
+- [NodeJS](https://nodejs.org/en/) (Version 22 or greater required)
 - [Git](https://git-scm.com/)
 
 This template can be installed with the Foundation CLI, or downloaded and set up manually.

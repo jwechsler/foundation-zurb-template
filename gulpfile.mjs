@@ -1,43 +1,48 @@
-import plugins       from 'gulp-load-plugins';
-import yargs         from 'yargs';
-import browser       from 'browser-sync';
-import gulp          from 'gulp';
-import panini        from 'panini';
-import rimraf        from 'rimraf';
-import sherpa        from 'style-sherpa';
-import yaml          from 'js-yaml';
-import fs            from 'fs';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+import gulp from 'gulp';
+import gulpIf from 'gulp-if';
+import gulpSass from 'gulp-sass';
+import postcss from 'gulp-postcss';
+import terser from 'gulp-terser';
+import imagemin, { gifsicle, mozjpeg, optipng, svgo } from 'gulp-imagemin';
+import * as sassCompiler from 'sass-embedded';
 import webpackStream from 'webpack-stream';
-import webpack2      from 'webpack';
-import named         from 'vinyl-named';
-import autoprefixer  from 'autoprefixer';
-import imagemin      from 'gulp-imagemin';
+import webpack2 from 'webpack';
+import named from 'vinyl-named';
+import autoprefixer from 'autoprefixer';
+import browser from 'browser-sync';
+import panini from 'panini';
+import { rimraf } from 'rimraf';
+import sherpa from 'style-sherpa';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 
-const sass = require('gulp-sass')(require('sass-embedded'));
-const postcss = require('gulp-postcss');
-const uncss = require('postcss-uncss');
-var sourcemaps = require('gulp-sourcemaps');
-var plumber = require('gulp-plumber');
+// js-yaml and js-yaml-js-types must both be loaded via CJS
+// so they share the same Type class instances
+const require = createRequire(import.meta.url);
+const yaml = require('js-yaml');
+const jsYamlJsTypes = require('js-yaml-js-types');
 
-// Load all Gulp plugins into one variable
-const $ = plugins();
+// Initialize gulp-sass with sass-embedded compiler
+const sass = gulpSass(sassCompiler);
 
 // Check for --production flag
-const PRODUCTION = !!(yargs.argv.production);
+const argv = yargs(hideBin(process.argv)).argv;
+const PRODUCTION = !!argv.production;
 
-// Load settings from settings.yml
+// Load settings from config.yml
 function loadConfig() {
-  const unsafe = require('js-yaml-js-types').all;
+  const unsafe = jsYamlJsTypes.all;
   const schema = yaml.DEFAULT_SCHEMA.extend(unsafe);
-  const ymlFile = fs.readFileSync('config.yml', 'utf8');
-  return yaml.load(ymlFile, {schema});
+  const ymlFile = readFileSync('config.yml', 'utf8');
+  return yaml.load(ymlFile, { schema });
 }
 const { PORT, UNCSS_OPTIONS, PATHS } = loadConfig();
 
-console.log(UNCSS_OPTIONS);
-
 // Build the "dist" folder by running all of the below tasks
-// Sass must be run later so UnCSS can search for used classes in the others assets.
+// Sass must be run later so UnCSS can search for used classes in the other assets.
 gulp.task('build',
   gulp.series(clean, gulp.parallel(pages, javascript, images, copy), sassBuild, styleGuide)
 );
@@ -49,14 +54,14 @@ gulp.task('default',
 
 // Delete the "dist" folder
 // This happens every time a build starts
-function clean(done) {
-  rimraf(PATHS.dist, done);
+async function clean() {
+  await rimraf(PATHS.dist);
 }
 
 // Copy files out of the assets folder
 // This task skips over the "img", "js", and "scss" folders, which are parsed separately
 function copy() {
-  return gulp.src(PATHS.assets)
+  return gulp.src(PATHS.assets, { encoding: false })
     .pipe(gulp.dest(PATHS.dist + '/assets'));
 }
 
@@ -90,24 +95,19 @@ function styleGuide(done) {
 // Compile Sass into CSS
 // In production, the CSS is compressed
 function sassBuild() {
-
   const postCssPlugins = [
-    // Autoprefixer
     autoprefixer(),
     // UnCSS - Uncomment to remove unused styles in production
     // PRODUCTION && uncss(UNCSS_OPTIONS),
   ].filter(Boolean);
 
-  return gulp.src('src/assets/scss/app.scss')
-  .pipe(sourcemaps.init())
-  .pipe(plumber())
-  .pipe(sass({
-    includePaths: PATHS.sass
-  }).on('error', sass.logError))
-  .pipe(postcss(postCssPlugins))
-  .pipe(sourcemaps.write('.'))
-  .pipe(gulp.dest(PATHS.dist + '/assets/css'))
-  .pipe(browser.reload({ stream: true }));
+  return gulp.src('src/assets/scss/app.scss', { sourcemaps: !PRODUCTION })
+    .pipe(sass({
+      includePaths: PATHS.sass
+    }).on('error', sass.logError))
+    .pipe(postcss(postCssPlugins))
+    .pipe(gulp.dest(PATHS.dist + '/assets/css', { sourcemaps: '.' }))
+    .pipe(browser.reload({ stream: true }));
 }
 
 let webpackConfig = {
@@ -119,7 +119,7 @@ let webpackConfig = {
         use: {
           loader: 'babel-loader',
           options: {
-            presets: [ "@babel/preset-env" ],
+            presets: ["@babel/preset-env"],
             compact: false
           }
         }
@@ -127,34 +127,32 @@ let webpackConfig = {
     ]
   },
   devtool: !PRODUCTION && 'source-map'
-}
+};
 
 // Combine JavaScript into one file
 // In production, the file is minified
 function javascript() {
   return gulp.src(PATHS.entries)
     .pipe(named())
-    .pipe($.sourcemaps.init())
     .pipe(webpackStream(webpackConfig, webpack2))
-    .pipe($.if(PRODUCTION, $.terser()
+    .pipe(gulpIf(PRODUCTION, terser()
       .on('error', e => { console.log(e); })
     ))
-    .pipe($.if(!PRODUCTION, $.sourcemaps.write()))
     .pipe(gulp.dest(PATHS.dist + '/assets/js'));
 }
 
 // Copy images to the "dist" folder
 // In production, the images are compressed
 function images() {
-  return gulp.src('src/assets/img/**/*')
-    .pipe($.if(PRODUCTION, imagemin([
-      imagemin.gifsicle({interlaced: true}),
-      imagemin.mozjpeg({quality: 85, progressive: true}),
-      imagemin.optipng({optimizationLevel: 5}),
-      imagemin.svgo({
+  return gulp.src('src/assets/img/**/*', { encoding: false })
+    .pipe(gulpIf(PRODUCTION, imagemin([
+      gifsicle({ interlaced: true }),
+      mozjpeg({ quality: 85, progressive: true }),
+      optipng({ optimizationLevel: 5 }),
+      svgo({
         plugins: [
-          {removeViewBox: true},
-          {cleanupIDs: false}
+          { name: 'removeViewBox', active: true },
+          { name: 'cleanupIDs', active: false }
         ]
       })
     ])))
