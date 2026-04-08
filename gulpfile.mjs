@@ -147,7 +147,7 @@ function javascript() {
 // In production, the images are compressed with persistent caching
 // In dev watch mode, gulp-newer skips unchanged files
 function images() {
-  return gulp.src('src/assets/img/**/*', { encoding: false, nodir: true })
+  return gulp.src('src/assets/img/**/*', { encoding: false, nodir: true, highWaterMark: 16 })
     .pipe(newer(PATHS.dist + '/assets/img'))
     .pipe(gulpIf(PRODUCTION, cache(imagemin([
       gifsicle({ interlaced: true }),
