@@ -7,6 +7,8 @@ import gulpSass from 'gulp-sass';
 import postcss from 'gulp-postcss';
 import terser from 'gulp-terser';
 import imagemin, { gifsicle, mozjpeg, optipng, svgo } from 'gulp-imagemin';
+import cache from 'gulp-cache';
+import newer from 'gulp-newer';
 import * as sassCompiler from 'sass-embedded';
 import webpackStream from 'webpack-stream';
 import webpack2 from 'webpack';
@@ -142,10 +144,12 @@ function javascript() {
 }
 
 // Copy images to the "dist" folder
-// In production, the images are compressed
+// In production, the images are compressed with persistent caching
+// In dev watch mode, gulp-newer skips unchanged files
 function images() {
   return gulp.src('src/assets/img/**/*', { encoding: false, nodir: true })
-    .pipe(gulpIf(PRODUCTION, imagemin([
+    .pipe(newer(PATHS.dist + '/assets/img'))
+    .pipe(gulpIf(PRODUCTION, cache(imagemin([
       gifsicle({ interlaced: true }),
       mozjpeg({ quality: 85, progressive: true }),
       optipng({ optimizationLevel: 5 }),
@@ -155,9 +159,12 @@ function images() {
           { name: 'cleanupIDs', active: false }
         ]
       })
-    ])))
+    ]), { name: 'imagemin' })))
     .pipe(gulp.dest(PATHS.dist + '/assets/img'));
 }
+
+// Clear the persistent image cache (use when you need a full re-minify)
+gulp.task('clear-cache', () => cache.clearAll());
 
 // Start a server with BrowserSync to preview the site in
 function server(done) {
