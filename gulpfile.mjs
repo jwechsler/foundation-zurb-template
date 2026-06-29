@@ -65,7 +65,10 @@ async function clean() {
 // This task skips over the "img", "js", and "scss" folders, which are parsed separately
 function copy() {
   return gulp.src(PATHS.assets, { encoding: false })
-    .pipe(gulp.dest(PATHS.dist + '/assets'));
+    // Force world-readable mode (0644). vinyl-fs otherwise preserves the source
+    // file's mode, and assets pulled from the Google Drive mount arrive as 0600,
+    // which the web server (different user) then cannot read once copied to dist.
+    .pipe(gulp.dest(PATHS.dist + '/assets', { mode: 0o644 }));
 }
 
 // Copy page templates into finished HTML files
@@ -161,7 +164,9 @@ function images() {
         ]
       })
     ]), { name: 'imagemin' })))
-    .pipe(gulp.dest(PATHS.dist + '/assets/img'));
+    // Force world-readable mode (0644) — see note on copy(); image sources from
+    // the Google Drive mount arrive as 0600 and must be normalized for the server.
+    .pipe(gulp.dest(PATHS.dist + '/assets/img', { mode: 0o644 }));
 }
 
 // Clear the persistent image cache (use when you need a full re-minify)
